@@ -68,7 +68,7 @@ The author must walk reviewers through every line live. Prefer plain, explicit c
 
 - kebab-case filenames, PascalCase components
 - No default exports, except where Next.js requires them (pages, layouts)
-- Use the path alias the example ships with; no deep relative climbs (`../../..`)
+- Use the `@/*` alias (maps to `src/*`) for imports across feature folders; no deep relative climbs (`../../..`)
 - Group by feature (for example `canvas/`, `comments/`), not by file type
 
 ### Imports
