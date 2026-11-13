@@ -1,19 +1,24 @@
-import { ReactElement, ReactNode } from "react";
+import { ReactElement, ReactNode, useRef } from "react";
 import {
-  THREAD_MAX_HEIGHT,
   THREAD_WIDTH,
   getCssTranslate,
-  getThreadPosition,
+  getThreadLeft,
+  getThreadMaxHeight,
+  getThreadSide,
+  getThreadTop,
 } from "./comment-layout";
 import styles from "./comments.module.css";
-import { Point } from "@/canvas/canvas-math";
+import { Point, Size } from "@/canvas/canvas-math";
 import { SCROLLABLE_OVERLAY_PROPS } from "@/canvas/use-canvas-gestures";
+import { useElementSize } from "@/canvas/use-element-size";
 
 export interface CommentPanelProps {
   /** Referenced by the pin's `aria-controls`. */
   id: string;
   /** Screen point of the pin the panel belongs to. */
   pinPoint: Point;
+  /** The visible canvas: its right edge decides the side, its height the vertical fit. */
+  canvasSize: Size;
   label: string;
   children: ReactNode;
 }
@@ -22,20 +27,30 @@ export interface CommentPanelProps {
 export function CommentPanel({
   id,
   pinPoint,
+  canvasSize,
   label,
   children,
 }: CommentPanelProps): ReactElement {
-  const position = getThreadPosition(pinPoint);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const panelSize = useElementSize(panelRef);
+
+  const side = getThreadSide(pinPoint, canvasSize.width);
+  const position = {
+    x: getThreadLeft(pinPoint, side),
+    y: getThreadTop(pinPoint, panelSize?.height ?? null, canvasSize.height),
+  };
 
   return (
     <div
+      ref={panelRef}
       id={id}
       role="dialog"
       aria-label={label}
       className={styles.panel}
+      data-side={side}
       style={{
         width: THREAD_WIDTH,
-        maxHeight: `min(${THREAD_MAX_HEIGHT}px, calc(100% - 2 * var(--space-edge)))`,
+        maxHeight: getThreadMaxHeight(canvasSize.height),
         transform: getCssTranslate(position),
       }}
       {...SCROLLABLE_OVERLAY_PROPS}

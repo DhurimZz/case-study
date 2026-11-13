@@ -1,7 +1,10 @@
 import { RefObject, useEffect, useState } from "react";
 import { Size } from "./canvas-math";
 
-/** The element's content size, kept up to date on resize; null until measured. */
+/**
+ * The element's border-box size (everything it covers on screen, padding and
+ * border included), kept up to date on resize; null until measured.
+ */
 export function useElementSize(ref: RefObject<HTMLElement>): Size | null {
   const [size, setSize] = useState<Size | null>(null);
 
@@ -12,16 +15,14 @@ export function useElementSize(ref: RefObject<HTMLElement>): Size | null {
     }
 
     const observer = new ResizeObserver((entries): void => {
-      const entry = entries[0];
-      if (!entry) {
+      const borderBox = entries[0]?.borderBoxSize[0];
+      if (!borderBox) {
         return;
       }
-      setSize({
-        width: entry.contentRect.width,
-        height: entry.contentRect.height,
-      });
+      // Inline and block size are width and height in a horizontal layout.
+      setSize({ width: borderBox.inlineSize, height: borderBox.blockSize });
     });
-    observer.observe(element);
+    observer.observe(element, { box: "border-box" });
 
     return (): void => {
       observer.disconnect();

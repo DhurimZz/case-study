@@ -169,6 +169,7 @@ export function CommentLayer({
               <CommentPanel
                 id={panelId}
                 pinPoint={pinPoint}
+                canvasSize={overlay.viewportSize}
                 label="Comment thread"
               >
                 <Thread
@@ -195,6 +196,7 @@ export function CommentLayer({
           <CommentPanel
             id={DRAFT_PANEL_ID}
             pinPoint={draftPinPoint}
+            canvasSize={overlay.viewportSize}
             label="New comment"
           >
             <Composer autoFocus onComposerSubmit={handleDraftSubmit} />
