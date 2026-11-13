@@ -1,5 +1,13 @@
 node_modules/
-.env.local
-.env*.local
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+.vercel
+
+# Every env file holds secrets, except the empty template.
+.env*
+!.env.example
+
 .DS_Store
 .claude/settings.local.json
