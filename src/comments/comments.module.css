@@ -10,10 +10,15 @@
   pointer-events: none;
 }
 
+/* The wrapper is a square around a round pin: only the pin itself takes
+   clicks, so a click just beside it still reaches the canvas. */
 .pinPosition {
   position: absolute;
   top: 0;
   left: 0;
+}
+
+.pinPosition > button {
   pointer-events: auto;
 }
 
