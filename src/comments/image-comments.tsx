@@ -1,10 +1,10 @@
 "use client";
 
-import { ClientSideSuspense } from "@liveblocks/react";
 import { ReactElement, useState } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { CommentLayer, CommentSelection } from "./comment-layer";
-import styles from "./comments.module.css";
+import { CommentsNotice } from "./comments-notice";
+import { CRASHED_NOTICE } from "./comments-status";
 import { Point } from "@/canvas/canvas-math";
 import { CanvasOverlayState, ImageCanvas } from "@/canvas/image-canvas";
 
@@ -14,12 +14,12 @@ export interface ImageCommentsProps {
 }
 
 function handleCommentsError(error: Error): void {
-  console.error("Comments could not be loaded", error);
+  console.error("The comment layer crashed", error);
 }
 
 export function ImageComments({ src, alt }: ImageCommentsProps): ReactElement {
-  // Lives here, outside the Liveblocks Suspense boundary, because the canvas
-  // click handlers below need it too.
+  // Lives here, outside the comment layer, because the canvas click
+  // handlers below need it too.
   const [selection, setSelection] = useState<CommentSelection>(null);
 
   function handleImageClick(anchor: Point): void {
@@ -36,26 +36,20 @@ export function ImageComments({ src, alt }: ImageCommentsProps): ReactElement {
     setSelection(null);
   }
 
-  // The image keeps working (pan, zoom) while comments load or if they fail:
-  // the boundaries wrap only the comment layer.
+  // Loading, connection and save errors are shown by the layer itself. The
+  // boundary only catches a crash, and keeps the image working (pan, zoom)
+  // when it happens.
   function renderCommentLayer(overlay: CanvasOverlayState): ReactElement {
     return (
       <ErrorBoundary
-        fallback={
-          <p className={styles.layerError} role="alert">
-            Comments could not be loaded. You can still pan and zoom; reload the
-            page to try again.
-          </p>
-        }
+        fallback={<CommentsNotice notice={CRASHED_NOTICE} />}
         onError={handleCommentsError}
       >
-        <ClientSideSuspense fallback={null}>
-          <CommentLayer
-            overlay={overlay}
-            selection={selection}
-            onSelectionChange={setSelection}
-          />
-        </ClientSideSuspense>
+        <CommentLayer
+          overlay={overlay}
+          selection={selection}
+          onSelectionChange={setSelection}
+        />
       </ErrorBoundary>
     );
   }

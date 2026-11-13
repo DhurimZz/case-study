@@ -43,13 +43,28 @@
   pointer-events: auto;
 }
 
-.layerError {
+/* Inside a restored draft whose post failed. */
+.panelError {
+  margin: 0;
+  padding: 10px 14px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--danger);
+  border-bottom: 1px solid var(--border);
+}
+
+/* One notice at a time, top centre, above pins and threads. */
+.notice {
   position: absolute;
   top: var(--space-edge);
   left: 50%;
-  max-width: calc(100% - 2 * var(--space-edge));
-  margin: 0;
-  padding: 10px 16px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: max-content;
+  max-width: min(560px, calc(100% - 2 * var(--space-edge)));
+  padding: 10px 14px;
   transform: translateX(-50%);
   font-size: 14px;
   line-height: 1.45;
@@ -58,4 +73,59 @@
   border-radius: var(--radius-panel);
   box-shadow: var(--shadow-floating);
   pointer-events: auto;
+}
+
+.noticeDot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+
+.notice[data-tone="warning"] .noticeDot {
+  background: var(--warning);
+}
+
+.notice[data-tone="error"] .noticeDot {
+  background: var(--danger);
+}
+
+.noticeText {
+  margin: 0;
+}
+
+/* 44 px touch target; the negative margin keeps the pill as slim as its text. */
+.noticeDismiss {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: var(--control-size);
+  height: var(--control-size);
+  margin: -12px -10px -12px 0;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.noticeDismiss:hover {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+
+.noticeDismiss:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -4px;
+}
+
+.noticeDismissIcon {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
 }
