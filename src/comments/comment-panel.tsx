@@ -1,12 +1,5 @@
 import { ReactElement, ReactNode, useRef } from "react";
-import {
-  THREAD_WIDTH,
-  getCssTranslate,
-  getThreadLeft,
-  getThreadMaxHeight,
-  getThreadSide,
-  getThreadTop,
-} from "./comment-layout";
+import { getPanelStyle, getThreadPlacement } from "./comment-layout";
 import styles from "./comments.module.css";
 import { Point, Size } from "@/canvas/canvas-math";
 import { SCROLLABLE_OVERLAY_PROPS } from "@/canvas/use-canvas-gestures";
@@ -17,13 +10,13 @@ export interface CommentPanelProps {
   id: string;
   /** Screen point of the pin the panel belongs to. */
   pinPoint: Point;
-  /** The visible canvas: its right edge decides the side, its height the vertical fit. */
+  /** The visible canvas: its width decides the placement, its height the vertical fit. */
   canvasSize: Size;
   label: string;
   children: ReactNode;
 }
 
-/** An open thread or the new-comment composer, placed next to its pin. */
+/** An open thread or the new-comment composer: next to its pin, or a bottom sheet on narrow screens. */
 export function CommentPanel({
   id,
   pinPoint,
@@ -33,12 +26,13 @@ export function CommentPanel({
 }: CommentPanelProps): ReactElement {
   const panelRef = useRef<HTMLDivElement>(null);
   const panelSize = useElementSize(panelRef);
-
-  const side = getThreadSide(pinPoint, canvasSize.width);
-  const position = {
-    x: getThreadLeft(pinPoint, side),
-    y: getThreadTop(pinPoint, panelSize?.height ?? null, canvasSize.height),
-  };
+  const placement = getThreadPlacement(pinPoint, canvasSize.width);
+  const style = getPanelStyle(
+    placement,
+    pinPoint,
+    canvasSize,
+    panelSize?.height ?? null
+  );
 
   return (
     <div
@@ -47,12 +41,8 @@ export function CommentPanel({
       role="dialog"
       aria-label={label}
       className={styles.panel}
-      data-side={side}
-      style={{
-        width: THREAD_WIDTH,
-        maxHeight: getThreadMaxHeight(canvasSize.height),
-        transform: getCssTranslate(position),
-      }}
+      data-placement={placement}
+      style={style}
       {...SCROLLABLE_OVERLAY_PROPS}
     >
       {children}

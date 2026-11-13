@@ -6,9 +6,11 @@ import {
   THREAD_GAP,
   THREAD_MAX_HEIGHT,
   THREAD_WIDTH,
+  getPanelStyle,
+  getSheetMaxHeight,
   getThreadLeft,
   getThreadMaxHeight,
-  getThreadSide,
+  getThreadPlacement,
   getThreadTop,
 } from "./comment-layout";
 
@@ -18,7 +20,7 @@ const NEEDED_ON_RIGHT = PIN_SIZE + THREAD_GAP + THREAD_WIDTH;
 /** The last pin x where a right-side thread still fits. */
 const LAST_X_FOR_RIGHT = CANVAS_WIDTH - EDGE_MARGIN - NEEDED_ON_RIGHT;
 
-describe("getThreadSide", (): void => {
+describe("getThreadPlacement", (): void => {
   it.each([
     { name: "far left", x: 40, expected: "right" },
     { name: "middle", x: 600, expected: "right" },
@@ -30,31 +32,75 @@ describe("getThreadSide", (): void => {
     { name: "one pixel past it", x: LAST_X_FOR_RIGHT + 1, expected: "left" },
     { name: "at the right edge", x: CANVAS_WIDTH - PIN_SIZE, expected: "left" },
   ])("opens $expected for a pin $name", ({ x, expected }): void => {
-    expect(getThreadSide({ x, y: 200 }, CANVAS_WIDTH)).toBe(expected);
+    expect(getThreadPlacement({ x, y: 200 }, CANVAS_WIDTH)).toBe(expected);
   });
 
   it("does not depend on the pin's height on screen", (): void => {
-    expect(getThreadSide({ x: 1100, y: -500 }, CANVAS_WIDTH)).toBe("left");
-    expect(getThreadSide({ x: 1100, y: 5000 }, CANVAS_WIDTH)).toBe("left");
+    expect(getThreadPlacement({ x: 1100, y: -500 }, CANVAS_WIDTH)).toBe("left");
+    expect(getThreadPlacement({ x: 1100, y: 5000 }, CANVAS_WIDTH)).toBe("left");
   });
 
-  describe("when neither side fits (narrow canvas)", (): void => {
-    const narrowWidth = 375;
-
-    it("opens on the right when there is more room there", (): void => {
-      expect(getThreadSide({ x: 100, y: 200 }, narrowWidth)).toBe("right");
+  describe("when neither side fits", (): void => {
+    it.each([
+      { name: "a 375 px phone, pin on the left", width: 375, x: 100 },
+      { name: "a 375 px phone, pin on the right", width: 375, x: 250 },
+      { name: "a 320 px phone, anywhere", width: 320, x: 160 },
+      { name: "a 600 px canvas, pin in the middle", width: 600, x: 300 },
+    ])("opens a bottom sheet on $name", ({ width, x }): void => {
+      expect(getThreadPlacement({ x, y: 200 }, width)).toBe("sheet");
     });
 
-    it("opens on the left when there is more room there", (): void => {
-      expect(getThreadSide({ x: 250, y: 200 }, narrowWidth)).toBe("left");
+    it("still opens beside the pin on a 768 px tablet when one side fits", (): void => {
+      expect(getThreadPlacement({ x: 384, y: 200 }, 768)).toBe("right");
+      expect(getThreadPlacement({ x: 700, y: 200 }, 768)).toBe("left");
     });
+  });
+});
 
-    it("keeps the default right side when both sides have the same room", (): void => {
-      // Room on the left: x - 16. On the right: 375 - 16 - (x + 32) = 327 - x.
-      // Equal at x = 171.5.
-      expect(getThreadSide({ x: 171.5, y: 200 }, narrowWidth)).toBe("right");
-      expect(getThreadSide({ x: 172, y: 200 }, narrowWidth)).toBe("left");
+describe("getPanelStyle", (): void => {
+  const pin = { x: 900, y: 200 };
+
+  it("anchors a sheet to the bottom, full width minus the margins, above the zoom controls", (): void => {
+    expect(
+      getPanelStyle(
+        "sheet",
+        { x: 100, y: 300 },
+        { width: 375, height: 740 },
+        94
+      )
+    ).toEqual({
+      top: "auto",
+      left: EDGE_MARGIN,
+      right: EDGE_MARGIN,
+      bottom: BOTTOM_RESERVED,
+      maxHeight: 407,
     });
+  });
+
+  it("places a right-side panel after the pin and the gap, at the pin's height", (): void => {
+    expect(
+      getPanelStyle("right", pin, { width: 1280, height: 800 }, null)
+    ).toEqual({
+      width: THREAD_WIDTH,
+      maxHeight: THREAD_MAX_HEIGHT,
+      transform: `translate(${900 + PIN_SIZE + THREAD_GAP}px, 200px)`,
+    });
+  });
+
+  it("places a left-side panel so it ends one gap before the pin", (): void => {
+    expect(
+      getPanelStyle("left", pin, { width: 1280, height: 800 }, null).transform
+    ).toBe(`translate(${900 - THREAD_GAP - THREAD_WIDTH}px, 200px)`);
+  });
+});
+
+describe("getSheetMaxHeight", (): void => {
+  it("is 55% of a phone's canvas height", (): void => {
+    expect(getSheetMaxHeight(740)).toBe(407);
+  });
+
+  it("never exceeds the thread's max height", (): void => {
+    expect(getSheetMaxHeight(2000)).toBe(THREAD_MAX_HEIGHT);
   });
 });
 
@@ -70,11 +116,10 @@ describe("getThreadLeft", (): void => {
     expect(left + THREAD_WIDTH + THREAD_GAP).toBe(pin.x);
   });
 
-  it("keeps a left thread inside the canvas whenever getThreadSide chose left because it fits", (): void => {
+  it("keeps a left thread inside the canvas whenever the placement is left", (): void => {
     const pinNearEdge = { x: LAST_X_FOR_RIGHT + 1, y: 200 };
-    const side = getThreadSide(pinNearEdge, CANVAS_WIDTH);
-    expect(side).toBe("left");
-    expect(getThreadLeft(pinNearEdge, side)).toBeGreaterThanOrEqual(
+    expect(getThreadPlacement(pinNearEdge, CANVAS_WIDTH)).toBe("left");
+    expect(getThreadLeft(pinNearEdge, "left")).toBeGreaterThanOrEqual(
       EDGE_MARGIN
     );
   });

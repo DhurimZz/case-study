@@ -13,6 +13,11 @@
 /* The wrapper is a square around a round pin: only the pin itself takes
    clicks, so a click just beside it still reaches the canvas. */
 .pinPosition {
+  /* PIN_SIZE in comment-layout.ts. */
+  --pin-size: 32px;
+  /* Negative: how far the touch target reaches past the pin on each side. */
+  --pin-touch-inset: calc((var(--pin-size) - var(--control-size)) / 2);
+
   position: absolute;
   top: 0;
   left: 0;
@@ -20,6 +25,18 @@
 
 .pinPosition > button {
   pointer-events: auto;
+}
+
+/* Any touch screen (also a laptop whose main pointer is a trackpad): a round
+   target the size of the other controls around the pin. Liveblocks only uses
+   the pin's ::after (shadow and focus ring), so ::before is free. */
+@media (any-pointer: coarse) {
+  .pinPosition > button::before {
+    content: "";
+    position: absolute;
+    inset: var(--pin-touch-inset);
+    border-radius: 50%;
+  }
 }
 
 .pinPosition[data-open="true"] {
@@ -73,6 +90,17 @@
   border-radius: var(--radius-panel);
   box-shadow: var(--shadow-floating);
   pointer-events: auto;
+}
+
+/* Narrow screens (below NARROW_CANVAS_WIDTH in canvas-math.ts): the notice is
+   nearly full width and would cover the Liveblocks badge in the top right,
+   so it moves below it. */
+@media (max-width: 639px) {
+  .notice {
+    --badge-clearance: 64px;
+
+    top: var(--badge-clearance);
+  }
 }
 
 .noticeDot {

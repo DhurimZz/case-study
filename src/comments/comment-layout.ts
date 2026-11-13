@@ -1,4 +1,5 @@
-import { Point } from "@/canvas/canvas-math";
+import { CSSProperties } from "react";
+import { Point, Size } from "@/canvas/canvas-math";
 
 // The one place for sizes that both the layout math and the rendered
 // components read, so the two cannot drift apart.
@@ -21,29 +22,43 @@ export const EDGE_MARGIN = 16;
  */
 export const BOTTOM_RESERVED = 16 + 52 + 8;
 
+/** The bottom sheet's height limit, as a share of the canvas height, so part of the image stays visible above it. */
+export const SHEET_HEIGHT_RATIO = 0.55;
+
 export type ThreadSide = "left" | "right";
+export type ThreadPlacement = ThreadSide | "sheet";
 
 /**
  * A thread opens to the right of its pin when it fits before the right edge
- * of the visible canvas. Otherwise it opens on the side with more room: near
- * the right edge that is the left, inwards; on a screen too narrow for
- * either side it is the side that clips least.
+ * of the visible canvas, otherwise to the left (inwards) when that fits. On a
+ * screen too narrow for either side it opens as a sheet along the bottom,
+ * instead of being cut off.
  *
  * The width is the fixed THREAD_WIDTH, never a measured one, so typing or a
- * growing thread cannot flip it; only the pin moving can.
+ * growing thread cannot change the placement; only the pin moving can.
  */
-export function getThreadSide(
+export function getThreadPlacement(
   pinPoint: Point,
   canvasWidth: number
-): ThreadSide {
+): ThreadPlacement {
+  const neededRoom = THREAD_GAP + THREAD_WIDTH;
   const roomOnRight = canvasWidth - EDGE_MARGIN - (pinPoint.x + PIN_SIZE);
   const roomOnLeft = pinPoint.x - EDGE_MARGIN;
-  const fitsOnRight = roomOnRight >= THREAD_GAP + THREAD_WIDTH;
 
-  if (fitsOnRight) {
+  if (roomOnRight >= neededRoom) {
     return "right";
   }
-  return roomOnLeft > roomOnRight ? "left" : "right";
+  if (roomOnLeft >= neededRoom) {
+    return "left";
+  }
+  return "sheet";
+}
+
+export function getSheetMaxHeight(canvasHeight: number): number {
+  return Math.min(
+    THREAD_MAX_HEIGHT,
+    Math.round(canvasHeight * SHEET_HEIGHT_RATIO)
+  );
 }
 
 /** Screen x of the panel's left edge. */
@@ -88,4 +103,35 @@ export function getThreadMaxHeight(canvasHeight: number): number {
 
 export function getCssTranslate(point: Point): string {
   return `translate(${point.x}px, ${point.y}px)`;
+}
+
+/**
+ * Where and how big the panel is drawn. A sheet is anchored by its bottom
+ * edge, above the zoom controls, so it needs no measured height; a panel
+ * beside its pin uses `panelHeight` (null until measured) to fit vertically.
+ */
+export function getPanelStyle(
+  placement: ThreadPlacement,
+  pinPoint: Point,
+  canvasSize: Size,
+  panelHeight: number | null
+): CSSProperties {
+  if (placement === "sheet") {
+    return {
+      top: "auto",
+      left: EDGE_MARGIN,
+      right: EDGE_MARGIN,
+      bottom: BOTTOM_RESERVED,
+      maxHeight: getSheetMaxHeight(canvasSize.height),
+    };
+  }
+  const position = {
+    x: getThreadLeft(pinPoint, placement),
+    y: getThreadTop(pinPoint, panelHeight, canvasSize.height),
+  };
+  return {
+    width: THREAD_WIDTH,
+    maxHeight: getThreadMaxHeight(canvasSize.height),
+    transform: getCssTranslate(position),
+  };
 }
