@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getUserIndex } from "./user-identity";
+import { getUserCookieOptions, getUserIndex } from "./user-identity";
 
 const USER_COUNT = 8;
 /** Always picks the middle user, so a "new random" index is recognisable. */
@@ -29,5 +29,28 @@ describe("getUserIndex", (): void => {
     const almostOne = (): number => 0.999999;
     expect(getUserIndex(undefined, USER_COUNT, almostOne)).toBe(7);
     expect(getUserIndex(undefined, USER_COUNT, (): number => 0)).toBe(0);
+  });
+});
+
+describe("getUserCookieOptions", (): void => {
+  it("marks the cookie Secure over HTTPS", (): void => {
+    const options = getUserCookieOptions(new URL("https://example.com/"));
+    expect(options.secure).toBe(true);
+  });
+
+  it("is not Secure over plain http, so Safari keeps it on http://localhost", (): void => {
+    const options = getUserCookieOptions(new URL("http://localhost:3000/"));
+    expect(options.secure).toBe(false);
+  });
+
+  it("is HttpOnly, SameSite=Lax, site-wide and kept for a year", (): void => {
+    const oneYearInSeconds = 365 * 24 * 60 * 60;
+    const options = getUserCookieOptions(new URL("http://localhost:3000/"));
+    expect(options).toMatchObject({
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/",
+      maxAge: oneYearInSeconds,
+    });
   });
 });

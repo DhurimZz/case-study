@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { NAMES } from "@/database";
 import {
   USER_COOKIE,
-  USER_COOKIE_OPTIONS,
+  getUserCookieOptions,
   getUserIndex,
 } from "@/users/user-identity";
 
@@ -18,7 +18,11 @@ export function proxy(request: NextRequest): NextResponse {
     Math.random
   );
   const response = NextResponse.next();
-  response.cookies.set(USER_COOKIE, String(userIndex), USER_COOKIE_OPTIONS);
+  response.cookies.set(
+    USER_COOKIE,
+    String(userIndex),
+    getUserCookieOptions(request.nextUrl)
+  );
   return response;
 }
 

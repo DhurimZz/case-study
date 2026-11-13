@@ -1,15 +1,30 @@
 /** Remembers which fake user this browser is, so its comments stay editable after a reload. */
 export const USER_COOKIE = "image-comments-user";
 
-export const USER_COOKIE_OPTIONS = {
-  httpOnly: true,
-  sameSite: "lax",
-  path: "/",
-  maxAge: 60 * 60 * 24 * 365,
-  // Only in production: some browsers refuse Secure cookies on plain
-  // http://localhost, where the app runs in development.
-  secure: process.env.NODE_ENV === "production",
-} as const;
+const USER_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
+
+export interface UserCookieOptions {
+  httpOnly: boolean;
+  sameSite: "lax";
+  path: string;
+  maxAge: number;
+  secure: boolean;
+}
+
+/**
+ * `secure` follows the request, not NODE_ENV: `npm start` serves production
+ * over plain http://localhost, and Safari drops Secure cookies there, which
+ * would make every auth request a different random user again.
+ */
+export function getUserCookieOptions(requestUrl: URL): UserCookieOptions {
+  return {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: USER_COOKIE_MAX_AGE_SECONDS,
+    secure: requestUrl.protocol === "https:",
+  };
+}
 
 const DIGITS_ONLY = /^\d+$/;
 
