@@ -1,0 +1,56 @@
+/* Reads the design tokens defined on the canvas (canvas.module.css): the
+   comment layer is always rendered inside it. */
+
+.layer {
+  position: absolute;
+  inset: 0;
+  /* Its own stacking context, so an open thread never covers the zoom
+     controls, which come later in the canvas. */
+  z-index: 0;
+  pointer-events: none;
+}
+
+.pinPosition {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: auto;
+}
+
+.pinPosition[data-open="true"] {
+  z-index: 1;
+}
+
+.pinPosition[data-resolved="true"] {
+  opacity: 0.55;
+}
+
+.panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--surface);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-floating);
+  pointer-events: auto;
+}
+
+.layerError {
+  position: absolute;
+  top: var(--space-edge);
+  left: 50%;
+  max-width: calc(100% - 2 * var(--space-edge));
+  margin: 0;
+  padding: 10px 16px;
+  transform: translateX(-50%);
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--text);
+  background: var(--surface);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-floating);
+  pointer-events: auto;
+}
