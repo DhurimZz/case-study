@@ -63,6 +63,7 @@ The author must walk reviewers through every line live. Prefer plain, explicit c
 - All functions have explicit return types
 - No `any`
 - Semantic function prefixes: `get`, `use`, `fetch`, `create`, `update`, `delete`, `handle`, `is`, `has`, `should`
+- Exception: actions a hook returns are plain verbs, like React's `setState` (`zoomIn`, `panBy`, `retry`)
 
 ### Files & Naming
 
