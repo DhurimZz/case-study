@@ -1,13 +1,18 @@
 import { Liveblocks } from "@liveblocks/node";
-import { NAMES } from "../../../database";
 import { NextRequest, NextResponse } from "next/server";
+import { NAMES } from "@/database";
+import {
+  USER_COOKIE,
+  USER_COOKIE_OPTIONS,
+  getUserIndex,
+} from "@/users/user-identity";
 
 /**
  * Authenticating your Liveblocks application
  * https://liveblocks.io/docs/api-reference/authentication
  */
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   const secret = process.env.LIVEBLOCKS_SECRET_KEY;
   if (!secret) {
     return new NextResponse("Missing LIVEBLOCKS_SECRET_KEY", { status: 403 });
@@ -18,8 +23,15 @@ export async function POST(request: NextRequest) {
   // crash the build instead of reaching the 403 above.
   const liveblocks = new Liveblocks({ secret });
 
-  // Get the current user's unique id from your database
-  const userIndex = Math.floor(Math.random() * NAMES.length);
+  // The starter picked a random fake user on every request, so a reload made
+  // you someone else and Liveblocks hid Edit on your own comments. The proxy
+  // (src/proxy.ts) sets this browser's user cookie on the page request; the
+  // random fallback only applies if the cookie was removed since.
+  const userIndex = getUserIndex(
+    request.cookies.get(USER_COOKIE)?.value,
+    NAMES.length,
+    Math.random
+  );
 
   // Create a session for the current user (access token auth)
   const session = liveblocks.prepareSession(`user-${userIndex}`, {
@@ -34,5 +46,7 @@ export async function POST(request: NextRequest) {
 
   // Authorize the user and return the result
   const { status, body } = await session.authorize();
-  return new NextResponse(body, { status });
+  const response = new NextResponse(body, { status });
+  response.cookies.set(USER_COOKIE, String(userIndex), USER_COOKIE_OPTIONS);
+  return response;
 }
