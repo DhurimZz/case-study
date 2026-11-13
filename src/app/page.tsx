@@ -6,7 +6,7 @@ import { RoomProvider } from "@liveblocks/react/suspense";
 import { Loading } from "../components/Loading";
 import { ClientSideSuspense } from "@liveblocks/react";
 import { ErrorBoundary } from "react-error-boundary";
-import { CommentsCanvas } from "../components/CommentsCanvas";
+import { ImageCanvas } from "@/canvas/image-canvas";
 
 export default function Page() {
   const roomId = useExampleRoomId("liveblocks:examples:nextjs-comments-canvas");
@@ -19,7 +19,10 @@ export default function Page() {
         }
       >
         <ClientSideSuspense fallback={<Loading />}>
-          <CommentsCanvas />
+          <ImageCanvas
+            src="/poster.svg"
+            alt="Poster for the Midsummer Light Festival: a sun setting behind mountains over a lake, with dates and programme"
+          />
         </ClientSideSuspense>
       </ErrorBoundary>
     </RoomProvider>

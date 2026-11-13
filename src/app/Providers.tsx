@@ -7,6 +7,8 @@ export function Providers({ children }: PropsWithChildren) {
   return (
     <LiveblocksProvider
       authEndpoint="/api/liveblocks-auth"
+      // The free-plan badge defaults to bottom-right, on top of the zoom controls.
+      badgeLocation="top-right"
       // Get users' info from their ID
       resolveUsers={async ({ userIds }) => {
         const searchParams = new URLSearchParams(
