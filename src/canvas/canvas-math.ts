@@ -28,6 +28,8 @@ export const MAX_SCALE = 8;
 export const ZOOM_BUTTON_FACTOR = 1.25;
 /** Screen pixels kept free around the image when it is fitted to the viewport. */
 export const FIT_PADDING = 48;
+/** Screen pixels a pressed pointer must move before the press is a drag, not a click. */
+export const DRAG_THRESHOLD = 4;
 /** Scale changes by e^(-deltaY * WHEEL_ZOOM_SPEED) per wheel event. */
 export const WHEEL_ZOOM_SPEED = 0.002;
 /** Trackpad pinch arrives as wheel events with `ctrlKey` set and much smaller deltas. */
@@ -65,6 +67,65 @@ export function getImagePoint(
     x: (screenPoint.x - transform.x) / transform.scale,
     y: (screenPoint.y - transform.y) / transform.scale,
   };
+}
+
+/**
+ * A point as a fraction of the image size: (0, 0) is the image's top-left
+ * corner, (1, 1) its bottom-right. Independent of the image's resolution.
+ */
+export function getNormalizedPoint(imagePoint: Point, imageSize: Size): Point {
+  return {
+    x: imagePoint.x / imageSize.width,
+    y: imagePoint.y / imageSize.height,
+  };
+}
+
+export function getImagePointFromNormalized(
+  normalizedPoint: Point,
+  imageSize: Size
+): Point {
+  return {
+    x: normalizedPoint.x * imageSize.width,
+    y: normalizedPoint.y * imageSize.height,
+  };
+}
+
+/** True when the point lies on the image: both coordinates finite and within 0..1. */
+export function isNormalizedPoint(point: Point): boolean {
+  return isUnitInterval(point.x) && isUnitInterval(point.y);
+}
+
+function isUnitInterval(value: number): boolean {
+  return Number.isFinite(value) && value >= 0 && value <= 1;
+}
+
+/** Where a normalized point (a comment anchor) is on screen right now. */
+export function getScreenPointFromNormalized(
+  normalizedPoint: Point,
+  imageSize: Size,
+  transform: CanvasTransform
+): Point {
+  const imagePoint = getImagePointFromNormalized(normalizedPoint, imageSize);
+  return getScreenPoint(imagePoint, transform);
+}
+
+/** The normalized point under a screen point (a click); outside 0..1 is off the image. */
+export function getNormalizedPointFromScreen(
+  screenPoint: Point,
+  imageSize: Size,
+  transform: CanvasTransform
+): Point {
+  const imagePoint = getImagePoint(screenPoint, transform);
+  return getNormalizedPoint(imagePoint, imageSize);
+}
+
+export function getDistance(a: Point, b: Point): number {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+/** True once a pressed pointer has moved far enough to be a drag, not a click (which jitters a pixel or two). */
+export function isDrag(startPoint: Point, currentPoint: Point): boolean {
+  return getDistance(startPoint, currentPoint) >= DRAG_THRESHOLD;
 }
 
 export function getClampedScale(scale: number): number {

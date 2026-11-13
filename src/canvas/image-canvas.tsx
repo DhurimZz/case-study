@@ -1,7 +1,16 @@
 "use client";
 
-import { ReactElement, useRef } from "react";
-import { MAX_SCALE, MIN_SCALE, getCssTransform } from "./canvas-math";
+import { ReactElement, ReactNode, useCallback, useRef } from "react";
+import {
+  CanvasTransform,
+  MAX_SCALE,
+  MIN_SCALE,
+  Point,
+  Size,
+  getCssTransform,
+  getNormalizedPointFromScreen,
+  isNormalizedPoint,
+} from "./canvas-math";
 import styles from "./canvas.module.css";
 import { ImageLoadError } from "./image-load-error";
 import { ImageLoading } from "./image-loading";
@@ -11,12 +20,33 @@ import { useElementSize } from "./use-element-size";
 import { useImageLoader } from "./use-image-loader";
 import { ZoomControls } from "./zoom-controls";
 
+/** What an overlay needs to place things on the image: everything is known and non-null. */
+export interface CanvasOverlayState {
+  transform: CanvasTransform;
+  imageSize: Size;
+  viewportSize: Size;
+  /** Somewhere for keyboard focus to go when the element holding it disappears. Stable between renders. */
+  focusCanvas: () => void;
+}
+
 export interface ImageCanvasProps {
   src: string;
   alt: string;
+  /** A click (not a drag) on the image, as a fraction of the image size (0..1). */
+  onImageClick?: (normalizedPoint: Point) => void;
+  /** A click (not a drag) on the canvas around the image. */
+  onBackgroundClick?: () => void;
+  /** Drawn above the image and below the zoom controls, re-rendered on every pan and zoom. */
+  renderOverlay?: (overlay: CanvasOverlayState) => ReactNode;
 }
 
-export function ImageCanvas({ src, alt }: ImageCanvasProps): ReactElement {
+export function ImageCanvas({
+  src,
+  alt,
+  onImageClick,
+  onBackgroundClick,
+  renderOverlay,
+}: ImageCanvasProps): ReactElement {
   // The viewport fills the canvas, so the canvas's size and top-left corner
   // are the viewport's: one ref serves measuring and the wheel listener.
   const canvasRef = useRef<HTMLElement>(null);
@@ -24,16 +54,43 @@ export function ImageCanvas({ src, alt }: ImageCanvasProps): ReactElement {
   const { status, naturalSize, retry } = useImageLoader(src);
   const { transform, panBy, zoomAt, zoomIn, zoomOut, fitToScreen } =
     useCanvasTransform(naturalSize, viewportSize);
-  const gestures = useCanvasGestures(canvasRef, { panBy, zoomAt });
+
+  function handleTap(canvasPoint: Point): void {
+    if (!transform || !naturalSize) {
+      return;
+    }
+    const normalizedPoint = getNormalizedPointFromScreen(
+      canvasPoint,
+      naturalSize,
+      transform
+    );
+    if (isNormalizedPoint(normalizedPoint)) {
+      onImageClick?.(normalizedPoint);
+    } else {
+      onBackgroundClick?.();
+    }
+  }
+
+  const gestures = useCanvasGestures(canvasRef, {
+    panBy,
+    zoomAt,
+    onTap: handleTap,
+  });
 
   const isLoading = status === "loading";
   const hasError = status === "error";
   const canShowImage = transform !== null && naturalSize !== null;
+  const canShowOverlay = canShowImage && viewportSize !== null;
+
+  // Stable, so overlays can list it as an effect dependency.
+  const focusCanvas = useCallback((): void => {
+    canvasRef.current?.focus();
+  }, []);
 
   function handleRetry(): void {
     // "Try again" unmounts while the image reloads; without this, keyboard
     // focus would drop to the top of the page.
-    canvasRef.current?.focus();
+    focusCanvas();
     retry();
   }
 
@@ -69,6 +126,17 @@ export function ImageCanvas({ src, alt }: ImageCanvasProps): ReactElement {
           </div>
         ) : null}
       </div>
+
+      {/* A sibling of the viewport, not a child: pressing a pin or a thread
+          must never start a pan. */}
+      {canShowOverlay && renderOverlay
+        ? renderOverlay({
+            transform,
+            imageSize: naturalSize,
+            viewportSize,
+            focusCanvas,
+          })
+        : null}
 
       {isLoading ? <ImageLoading /> : null}
       {hasError ? <ImageLoadError onRetry={handleRetry} /> : null}

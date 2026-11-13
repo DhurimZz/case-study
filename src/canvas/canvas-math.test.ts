@@ -3,6 +3,7 @@ import {
   CanvasTransform,
   DOM_DELTA_LINE,
   DOM_DELTA_PAGE,
+  DRAG_THRESHOLD,
   FIT_PADDING,
   MAX_SCALE,
   MIN_SCALE,
@@ -10,12 +11,19 @@ import {
   getCenter,
   getClampedScale,
   getCssTransform,
+  getDistance,
   getFitTransform,
   getImagePoint,
+  getImagePointFromNormalized,
+  getNormalizedPoint,
+  getNormalizedPointFromScreen,
   getPannedTransform,
   getScreenPoint,
+  getScreenPointFromNormalized,
   getWheelZoomFactor,
   getZoomedTransform,
+  isDrag,
+  isNormalizedPoint,
   isSameTransform,
 } from "./canvas-math";
 
@@ -54,6 +62,127 @@ describe("getImagePoint", (): void => {
       expect(roundTrip.y).toBeCloseTo(imagePoint.y);
     }
   });
+});
+
+describe("normalized points", (): void => {
+  const imageSize = { width: 1200, height: 1600 };
+
+  it("divides by the image size, so corners are 0 and 1", (): void => {
+    expect(getNormalizedPoint({ x: 0, y: 0 }, imageSize)).toEqual({
+      x: 0,
+      y: 0,
+    });
+    expect(getNormalizedPoint({ x: 1200, y: 1600 }, imageSize)).toEqual({
+      x: 1,
+      y: 1,
+    });
+    expect(getNormalizedPoint({ x: 300, y: 400 }, imageSize)).toEqual({
+      x: 0.25,
+      y: 0.25,
+    });
+  });
+
+  it("converts back to the same image point", (): void => {
+    const imagePoint = { x: 731, y: 1204 };
+    const normalized = getNormalizedPoint(imagePoint, imageSize);
+    const roundTrip = getImagePointFromNormalized(normalized, imageSize);
+    expect(roundTrip.x).toBeCloseTo(imagePoint.x);
+    expect(roundTrip.y).toBeCloseTo(imagePoint.y);
+  });
+
+  it.each([
+    { point: { x: 0, y: 0 }, expected: true },
+    { point: { x: 1, y: 1 }, expected: true },
+    { point: { x: 0.5, y: 0.999 }, expected: true },
+    { point: { x: -0.001, y: 0.5 }, expected: false },
+    { point: { x: 0.5, y: 1.001 }, expected: false },
+    { point: { x: Number.NaN, y: 0.5 }, expected: false },
+    { point: { x: 0.5, y: Number.POSITIVE_INFINITY }, expected: false },
+    { point: { x: 640, y: 380 }, expected: false },
+  ])(
+    "isNormalizedPoint($point.x, $point.y) is $expected",
+    ({ point, expected }): void => {
+      expect(isNormalizedPoint(point)).toBe(expected);
+    }
+  );
+});
+
+describe("comment anchoring", (): void => {
+  const imageSize = { width: 1200, height: 1600 };
+  const transforms: CanvasTransform[] = [
+    { x: 0, y: 0, scale: 1 },
+    { x: 412, y: 48, scale: 0.43 },
+    { x: -2350, y: -4100, scale: MAX_SCALE },
+    { x: 610, y: 395, scale: MIN_SCALE },
+  ];
+
+  // The same two functions the canvas (click) and the comment layer (pins) call.
+  it("puts the pin exactly where the user clicked", (): void => {
+    const click = { x: 640, y: 380 };
+    for (const transform of transforms) {
+      const anchor = getNormalizedPointFromScreen(click, imageSize, transform);
+      const pin = getScreenPointFromNormalized(anchor, imageSize, transform);
+      expect(pin.x).toBeCloseTo(click.x);
+      expect(pin.y).toBeCloseTo(click.y);
+    }
+  });
+
+  it("keeps the pin on the same image pixel at every pan and zoom", (): void => {
+    const anchor = { x: 0.62, y: 0.31 };
+    const anchoredPixel = getImagePointFromNormalized(anchor, imageSize);
+
+    for (const transform of transforms) {
+      const pin = getScreenPointFromNormalized(anchor, imageSize, transform);
+      const pixelUnderPin = getImagePoint(pin, transform);
+      expect(pixelUnderPin.x).toBeCloseTo(anchoredPixel.x);
+      expect(pixelUnderPin.y).toBeCloseTo(anchoredPixel.y);
+    }
+  });
+
+  it("moves the pin with the image when zooming around the cursor", (): void => {
+    const anchor = { x: 0.62, y: 0.31 };
+    const before: CanvasTransform = { x: 412, y: 48, scale: 0.43 };
+    const after = getZoomedTransform(before, 2, { x: 500, y: 300 });
+
+    const pinBefore = getScreenPointFromNormalized(anchor, imageSize, before);
+    const pinAfter = getScreenPointFromNormalized(anchor, imageSize, after);
+    // Twice the scale: the pin is twice as far from the focal point.
+    expect(pinAfter.x - 500).toBeCloseTo((pinBefore.x - 500) * 2);
+    expect(pinAfter.y - 300).toBeCloseTo((pinBefore.y - 300) * 2);
+  });
+
+  it("reports a click beside the image as off the image", (): void => {
+    const fit: CanvasTransform = { x: 376, y: 48, scale: 0.44 };
+    const besideImage = getNormalizedPointFromScreen(
+      { x: 100, y: 400 },
+      imageSize,
+      fit
+    );
+    expect(isNormalizedPoint(besideImage)).toBe(false);
+  });
+});
+
+describe("getDistance", (): void => {
+  it("is the straight-line distance", (): void => {
+    expect(getDistance({ x: 0, y: 0 }, { x: 3, y: 4 })).toBe(5);
+  });
+});
+
+describe("isDrag", (): void => {
+  const start = { x: 100, y: 100 };
+
+  it.each([
+    { moved: { x: 100, y: 100 }, expected: false },
+    { moved: { x: 102, y: 101 }, expected: false },
+    { moved: { x: 103.9, y: 100 }, expected: false },
+    { moved: { x: 100 + DRAG_THRESHOLD, y: 100 }, expected: true },
+    { moved: { x: 97, y: 96 }, expected: true },
+  ])(
+    "moving to ($moved.x, $moved.y) is a drag: $expected",
+    ({ moved, expected }): void => {
+      expect(isDrag(start, moved)).toBe(expected);
+    }
+  );
 });
 
 describe("getClampedScale", (): void => {
