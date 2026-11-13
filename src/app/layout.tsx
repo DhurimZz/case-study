@@ -26,7 +26,10 @@ export default function RootLayout({
           type="image/png"
         />
       </head>
-      <body>
+      {/* Browser extensions (for example ColorZilla's cz-shortcut-listen) add
+          attributes to <body> before React hydrates. This ignores attribute
+          differences on <body> itself; the elements inside are still checked. */}
+      <body suppressHydrationWarning>
         <Providers>
           <Suspense>{children}</Suspense>
         </Providers>
