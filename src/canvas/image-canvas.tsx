@@ -109,6 +109,7 @@ export function ImageCanvas({
         onPointerUp={gestures.onPointerUp}
         onPointerCancel={gestures.onPointerCancel}
         onLostPointerCapture={gestures.onLostPointerCapture}
+        onClick={gestures.onClick}
       >
         {canShowImage ? (
           <div

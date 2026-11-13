@@ -5,19 +5,25 @@ import {
   DOM_DELTA_PAGE,
   DRAG_THRESHOLD,
   FIT_PADDING,
+  FIT_PADDING_NARROW,
   MAX_SCALE,
   MIN_SCALE,
+  NARROW_CANVAS_WIDTH,
+  Point,
   WheelInput,
   getCenter,
   getClampedScale,
   getCssTransform,
   getDistance,
+  getFitPadding,
   getFitTransform,
   getImagePoint,
   getImagePointFromNormalized,
+  getMidpoint,
   getNormalizedPoint,
   getNormalizedPointFromScreen,
   getPannedTransform,
+  getPinchChange,
   getScreenPoint,
   getScreenPointFromNormalized,
   getWheelZoomFactor,
@@ -270,6 +276,95 @@ describe("getFitTransform", (): void => {
       { width: 80, height: 80 }
     );
     expect(fit.scale).toBe(MIN_SCALE);
+  });
+
+  it("uses the narrow padding on a phone", (): void => {
+    const fit = getFitTransform(
+      { width: 1200, height: 1600 },
+      { width: 375, height: 740 }
+    );
+    // Width is the limit: (375 - 2 * 16) / 1200
+    expect(fit.scale).toBeCloseTo(343 / 1200);
+    expect(fit.x).toBeCloseTo(FIT_PADDING_NARROW);
+  });
+});
+
+describe("getFitPadding", (): void => {
+  it.each([
+    { width: 320, expected: FIT_PADDING_NARROW },
+    { width: NARROW_CANVAS_WIDTH - 1, expected: FIT_PADDING_NARROW },
+    { width: NARROW_CANVAS_WIDTH, expected: FIT_PADDING },
+    { width: 1280, expected: FIT_PADDING },
+  ])("is $expected px at $width px wide", ({ width, expected }): void => {
+    expect(getFitPadding(width)).toBe(expected);
+  });
+});
+
+describe("getPinchChange", (): void => {
+  it("keeps the image point between the fingers between them", (): void => {
+    const transform: CanvasTransform = { x: 30, y: 60, scale: 0.4 };
+    const previous: [Point, Point] = [
+      { x: 100, y: 300 },
+      { x: 200, y: 300 },
+    ];
+    // Fingers spread to twice the distance and the pair moves right and down.
+    const next: [Point, Point] = [
+      { x: 80, y: 340 },
+      { x: 280, y: 340 },
+    ];
+    const imagePointBetween = getImagePoint(
+      getMidpoint(previous[0], previous[1]),
+      transform
+    );
+
+    const change = getPinchChange(previous, next);
+    const panned = getPannedTransform(transform, change.pan);
+    const pinched = getZoomedTransform(
+      panned,
+      change.factor,
+      change.focalPoint
+    );
+
+    expect(change.factor).toBe(2);
+    expect(pinched.scale).toBeCloseTo(0.8);
+    const imagePointAfter = getImagePoint(
+      getMidpoint(next[0], next[1]),
+      pinched
+    );
+    expect(imagePointAfter.x).toBeCloseTo(imagePointBetween.x);
+    expect(imagePointAfter.y).toBeCloseTo(imagePointBetween.y);
+  });
+
+  it("only pans when the fingers keep their distance", (): void => {
+    const change = getPinchChange(
+      [
+        { x: 0, y: 0 },
+        { x: 100, y: 0 },
+      ],
+      [
+        { x: 10, y: 20 },
+        { x: 110, y: 20 },
+      ]
+    );
+    expect(change).toEqual({
+      pan: { x: 10, y: 20 },
+      factor: 1,
+      focalPoint: { x: 60, y: 20 },
+    });
+  });
+
+  it("does not zoom when both fingers start on the same spot", (): void => {
+    const change = getPinchChange(
+      [
+        { x: 50, y: 50 },
+        { x: 50, y: 50 },
+      ],
+      [
+        { x: 40, y: 50 },
+        { x: 60, y: 50 },
+      ]
+    );
+    expect(change.factor).toBe(1);
   });
 });
 

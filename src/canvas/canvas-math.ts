@@ -28,6 +28,10 @@ export const MAX_SCALE = 8;
 export const ZOOM_BUTTON_FACTOR = 1.25;
 /** Screen pixels kept free around the image when it is fitted to the viewport. */
 export const FIT_PADDING = 48;
+/** The same on narrow screens (phones), where 48 px would leave the image tiny. */
+export const FIT_PADDING_NARROW = 16;
+/** Below this canvas width, layouts switch to their narrow-screen variant. */
+export const NARROW_CANVAS_WIDTH = 640;
 /** Screen pixels a pressed pointer must move before the press is a drag, not a click. */
 export const DRAG_THRESHOLD = 4;
 /** Scale changes by e^(-deltaY * WHEEL_ZOOM_SPEED) per wheel event. */
@@ -123,6 +127,47 @@ export function getDistance(a: Point, b: Point): number {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
+export function getMidpoint(a: Point, b: Point): Point {
+  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+}
+
+export interface PinchChange {
+  pan: Point;
+  factor: number;
+  focalPoint: Point;
+}
+
+/**
+ * How two fingers moving from `previous` to `next` change the view: pan by
+ * how far the point between them moved, then zoom around its new position by
+ * how much their distance changed. Applied in that order, the image point
+ * between the fingers stays between them.
+ */
+export function getPinchChange(
+  previous: [Point, Point],
+  next: [Point, Point]
+): PinchChange {
+  const previousMidpoint = getMidpoint(previous[0], previous[1]);
+  const nextMidpoint = getMidpoint(next[0], next[1]);
+  const previousDistance = getDistance(previous[0], previous[1]);
+  const nextDistance = getDistance(next[0], next[1]);
+  // Two fingers on the same spot have no distance to compare.
+  const factor = previousDistance > 0 ? nextDistance / previousDistance : 1;
+
+  return {
+    pan: {
+      x: nextMidpoint.x - previousMidpoint.x,
+      y: nextMidpoint.y - previousMidpoint.y,
+    },
+    factor,
+    focalPoint: nextMidpoint,
+  };
+}
+
+export function getFitPadding(viewportWidth: number): number {
+  return viewportWidth < NARROW_CANVAS_WIDTH ? FIT_PADDING_NARROW : FIT_PADDING;
+}
+
 /** True once a pressed pointer has moved far enough to be a drag, not a click (which jitters a pixel or two). */
 export function isDrag(startPoint: Point, currentPoint: Point): boolean {
   return getDistance(startPoint, currentPoint) >= DRAG_THRESHOLD;
@@ -164,8 +209,9 @@ export function getFitTransform(
   imageSize: Size,
   viewportSize: Size
 ): CanvasTransform {
-  const availableWidth = viewportSize.width - FIT_PADDING * 2;
-  const availableHeight = viewportSize.height - FIT_PADDING * 2;
+  const padding = getFitPadding(viewportSize.width);
+  const availableWidth = viewportSize.width - padding * 2;
+  const availableHeight = viewportSize.height - padding * 2;
   // Capped at 1: a small image is shown at 100%, not blown up and blurred.
   const fitScale = Math.min(
     1,
